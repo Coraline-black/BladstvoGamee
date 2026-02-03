@@ -64,13 +64,6 @@ canvas.addEventListener("touchend", e => {
   } else if (dy < -50) jump();
 });
 
-/* === КЛАВИАТУРА === */
-document.addEventListener("keydown", e => {
-  if (e.code === "ArrowLeft" && lane > 0) lane--;
-  if (e.code === "ArrowRight" && lane < 2) lane++;
-  if (e.code === "Space") jump();
-});
-
 /* === СПАВН === */
 setInterval(() => {
   books.push({ x: 360, lane: Math.floor(Math.random()*3) });
