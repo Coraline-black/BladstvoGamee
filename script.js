@@ -1,7 +1,7 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-/* === КАРТИНКИ (БЕЗ ПАПКИ img) === */
+/* === КАРТИНКИ (БЕЗ ПАПКИ) === */
 const images = {};
 [
   "grandma",
@@ -18,24 +18,24 @@ const images = {};
   images[name] = img;
 });
 
-/* === ФОН (КОРИДОР) === */
-let bgX = 0;
-const bgSpeed = 3;
+/* === ФОН (КОРИДОР ВНИЗ) === */
+let bgY = 0;
+const bgSpeed = 4;
 
 /* === ДОРОЖКИ === */
 const lanes = [60, 155, 250];
 let currentLane = 1;
 
-/* === ИГРОК === */
-const groundY = 420;
+/* === ИГРОК (БОЛЬШАЯ БАБУШКА) === */
+const groundY = 380;
 const player = {
   x: lanes[currentLane],
   y: groundY,
-  w: 70,
-  h: 110,
+  w: 100,   // шире
+  h: 160,   // выше
   vy: 0,
   gravity: 1,
-  jumpPower: -18,
+  jumpPower: -20,
   onGround: true
 };
 
@@ -46,6 +46,9 @@ let phones = [];
 let chest = null;
 let prizes = [];
 let nextChestScore = 50;
+
+/* === ЛЁГКАЯ АНИМАЦИЯ БЕГА === */
+let runTime = 0;
 
 /* === ПРЫЖОК === */
 function jump() {
@@ -79,25 +82,31 @@ canvas.addEventListener("touchend", e => {
 /* === СПАВН ПРЕДМЕТОВ === */
 setInterval(() => {
   books.push({
-    x: canvas.width + 40,
+    y: -40,
     lane: Math.floor(Math.random() * 3)
   });
-}, 1500);
+}, 1200);
 
 setInterval(() => {
   phones.push({
-    x: canvas.width + 40,
+    y: -40,
     lane: Math.floor(Math.random() * 3)
   });
-}, 4000);
+}, 3500);
 
-/* === ОБНОВЛЕНИЕ ИГРЫ === */
+/* === ОБНОВЛЕНИЕ === */
 function update() {
-  bgX -= bgSpeed;
-  if (bgX <= -canvas.width) bgX = 0;
+  // движение коридора вниз
+  bgY += bgSpeed;
+  if (bgY >= canvas.height) bgY = 0;
 
+  // бег
+  runTime += 0.15;
+
+  // позиция игрока
   player.x = lanes[currentLane];
 
+  // прыжок
   player.y += player.vy;
   player.vy += player.gravity;
 
@@ -111,7 +120,7 @@ function update() {
   handleObjects(phones, -25);
 
   if (chest) {
-    chest.x -= 5;
+    chest.y += 5;
     if (checkCollision(chest)) {
       if (prizes.length < 3) {
         prizes.push(images["prize" + (prizes.length + 1)]);
@@ -124,7 +133,7 @@ function update() {
 
 function handleObjects(arr, points) {
   for (let i = arr.length - 1; i >= 0; i--) {
-    arr[i].x -= 5;
+    arr[i].y += 5;
 
     if (arr[i].lane === currentLane && checkCollision(arr[i])) {
       score += points;
@@ -133,13 +142,13 @@ function handleObjects(arr, points) {
 
       if (score >= nextChestScore && !chest) {
         chest = {
-          x: canvas.width + 40,
+          y: -50,
           lane: currentLane
         };
       }
     }
 
-    if (arr[i] && arr[i].x < -50) {
+    if (arr[i] && arr[i].y > canvas.height + 50) {
       arr.splice(i, 1);
     }
   }
@@ -147,9 +156,10 @@ function handleObjects(arr, points) {
 
 function checkCollision(obj) {
   return (
-    obj.x < player.x + player.w &&
-    obj.x + 40 > player.x &&
-    player.y + player.h > groundY
+    lanes[obj.lane] < player.x + player.w &&
+    lanes[obj.lane] + 40 > player.x &&
+    obj.y < player.y + player.h &&
+    obj.y + 40 > player.y
   );
 }
 
@@ -157,27 +167,39 @@ function checkCollision(obj) {
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  ctx.drawImage(images.corridor, bgX, 0, canvas.width, canvas.height);
-  ctx.drawImage(images.corridor, bgX + canvas.width, 0, canvas.width, canvas.height);
+  // коридор (движется вниз)
+  ctx.drawImage(images.corridor, 0, bgY - canvas.height, canvas.width, canvas.height);
+  ctx.drawImage(images.corridor, 0, bgY, canvas.width, canvas.height);
 
-  ctx.drawImage(images.grandma, player.x, player.y, player.w, player.h);
-
+  // предметы
   books.forEach(b => {
-    ctx.drawImage(images.book, b.x, groundY + 40, 40, 40);
+    ctx.drawImage(images.book, lanes[b.lane], b.y, 40, 40);
   });
 
   phones.forEach(p => {
-    ctx.drawImage(images.phone, p.x, groundY + 40, 40, 40);
+    ctx.drawImage(images.phone, lanes[p.lane], p.y, 40, 40);
   });
 
   if (chest) {
-    ctx.drawImage(images.chest, chest.x, groundY + 30, 50, 50);
+    ctx.drawImage(images.chest, lanes[chest.lane], chest.y, 50, 50);
   }
 
+  // бабушка (эффект бега)
+  const runOffset = Math.sin(runTime) * 5;
+  ctx.drawImage(
+    images.grandma,
+    player.x,
+    player.y + runOffset,
+    player.w,
+    player.h
+  );
+
+  // очки
   ctx.fillStyle = "white";
   ctx.font = "20px Arial";
   ctx.fillText("Очки: " + score, 10, 30);
 
+  // призы
   prizes.forEach((p, i) => {
     ctx.drawImage(p, 10 + i * 45, 50, 40, 40);
   });
