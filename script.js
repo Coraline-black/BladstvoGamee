@@ -1,89 +1,108 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-/* === КАРТИНКИ === */
-const imgs = {};
+/* === КАРТИНКИ (БЕЗ ПАПКИ img) === */
+const images = {};
 [
-  "grandma","corridor","book","phone","chest",
-  "prize1","prize2","prize3"
+  "grandma",
+  "corridor",
+  "book",
+  "phone",
+  "chest",
+  "prize1",
+  "prize2",
+  "prize3"
 ].forEach(name => {
   const img = new Image();
-  img.src = "img/" + name + ".png";
-  imgs[name] = img;
+  img.src = name + ".png";
+  images[name] = img;
 });
 
-/* === КОРИДОР === */
+/* === ФОН (КОРИДОР) === */
 let bgX = 0;
 const bgSpeed = 3;
 
-/* === ПОЛОСЫ === */
-const lanes = [70, 160, 250];
-let lane = 1;
+/* === ДОРОЖКИ === */
+const lanes = [60, 155, 250];
+let currentLane = 1;
 
 /* === ИГРОК === */
-const ground = 420;
+const groundY = 420;
 const player = {
-  x: lanes[lane],
-  y: ground,
+  x: lanes[currentLane],
+  y: groundY,
   w: 70,
   h: 110,
   vy: 0,
-  g: 1,
-  jump: -18,
+  gravity: 1,
+  jumpPower: -18,
   onGround: true
 };
 
-/* === ИГРА === */
+/* === ИГРОВЫЕ ДАННЫЕ === */
 let score = 0;
 let books = [];
 let phones = [];
 let chest = null;
 let prizes = [];
-let nextPrize = 50;
+let nextChestScore = 50;
 
 /* === ПРЫЖОК === */
 function jump() {
   if (player.onGround) {
-    player.vy = player.jump;
+    player.vy = player.jumpPower;
     player.onGround = false;
   }
 }
 
 /* === СВАЙПЫ === */
-let sx = 0, sy = 0;
+let startX = 0;
+let startY = 0;
+
 canvas.addEventListener("touchstart", e => {
-  sx = e.touches[0].clientX;
-  sy = e.touches[0].clientY;
-});
-canvas.addEventListener("touchend", e => {
-  const dx = e.changedTouches[0].clientX - sx;
-  const dy = e.changedTouches[0].clientY - sy;
-  if (Math.abs(dx) > Math.abs(dy)) {
-    if (dx > 50 && lane < 2) lane++;
-    if (dx < -50 && lane > 0) lane--;
-  } else if (dy < -50) jump();
+  startX = e.touches[0].clientX;
+  startY = e.touches[0].clientY;
 });
 
-/* === СПАВН === */
+canvas.addEventListener("touchend", e => {
+  const dx = e.changedTouches[0].clientX - startX;
+  const dy = e.changedTouches[0].clientY - startY;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    if (dx > 50 && currentLane < 2) currentLane++;
+    if (dx < -50 && currentLane > 0) currentLane--;
+  } else {
+    if (dy < -50) jump();
+  }
+});
+
+/* === СПАВН ПРЕДМЕТОВ === */
 setInterval(() => {
-  books.push({ x: 360, lane: Math.floor(Math.random()*3) });
+  books.push({
+    x: canvas.width + 40,
+    lane: Math.floor(Math.random() * 3)
+  });
 }, 1500);
 
 setInterval(() => {
-  phones.push({ x: 360, lane: Math.floor(Math.random()*3) });
+  phones.push({
+    x: canvas.width + 40,
+    lane: Math.floor(Math.random() * 3)
+  });
 }, 4000);
 
-/* === ОБНОВЛЕНИЕ === */
+/* === ОБНОВЛЕНИЕ ИГРЫ === */
 function update() {
   bgX -= bgSpeed;
-  if (bgX <= -360) bgX = 0;
+  if (bgX <= -canvas.width) bgX = 0;
 
-  player.x = lanes[lane];
+  player.x = lanes[currentLane];
+
   player.y += player.vy;
-  player.vy += player.g;
+  player.vy += player.gravity;
 
-  if (player.y >= ground) {
-    player.y = ground;
+  if (player.y >= groundY) {
+    player.y = groundY;
     player.vy = 0;
     player.onGround = true;
   }
@@ -93,70 +112,82 @@ function update() {
 
   if (chest) {
     chest.x -= 5;
-    if (hit(chest)) {
-      const i = prizes.length;
-      if (i < 3) prizes.push(imgs["prize"+(i+1)]);
+    if (checkCollision(chest)) {
+      if (prizes.length < 3) {
+        prizes.push(images["prize" + (prizes.length + 1)]);
+      }
       chest = null;
-      nextPrize += 50;
+      nextChestScore += 50;
     }
   }
 }
 
-function handleObjects(arr, pts) {
-  for (let i = arr.length-1; i>=0; i--) {
+function handleObjects(arr, points) {
+  for (let i = arr.length - 1; i >= 0; i--) {
     arr[i].x -= 5;
-    if (arr[i].lane === lane && hit(arr[i])) {
-      score += pts;
+
+    if (arr[i].lane === currentLane && checkCollision(arr[i])) {
+      score += points;
       if (score < 0) score = 0;
-      arr.splice(i,1);
-      if (score >= nextPrize && !chest) {
-        chest = { x: 360, lane: lane };
+      arr.splice(i, 1);
+
+      if (score >= nextChestScore && !chest) {
+        chest = {
+          x: canvas.width + 40,
+          lane: currentLane
+        };
       }
     }
+
+    if (arr[i] && arr[i].x < -50) {
+      arr.splice(i, 1);
+    }
   }
 }
 
-function hit(o) {
+function checkCollision(obj) {
   return (
-    o.x < player.x + player.w &&
-    o.x + 40 > player.x &&
-    ground < player.y + player.h
+    obj.x < player.x + player.w &&
+    obj.x + 40 > player.x &&
+    player.y + player.h > groundY
   );
 }
 
 /* === ОТРИСОВКА === */
 function draw() {
-  ctx.clearRect(0,0,360,600);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  ctx.drawImage(imgs.corridor, bgX, 0, 360, 600);
-  ctx.drawImage(imgs.corridor, bgX+360, 0, 360, 600);
+  ctx.drawImage(images.corridor, bgX, 0, canvas.width, canvas.height);
+  ctx.drawImage(images.corridor, bgX + canvas.width, 0, canvas.width, canvas.height);
 
-  ctx.drawImage(imgs.grandma, player.x, player.y, player.w, player.h);
+  ctx.drawImage(images.grandma, player.x, player.y, player.w, player.h);
 
-  books.forEach(b =>
-    ctx.drawImage(imgs.book, b.x, ground+40, 40,40)
-  );
+  books.forEach(b => {
+    ctx.drawImage(images.book, b.x, groundY + 40, 40, 40);
+  });
 
-  phones.forEach(p =>
-    ctx.drawImage(imgs.phone, p.x, ground+40, 40,40)
-  );
+  phones.forEach(p => {
+    ctx.drawImage(images.phone, p.x, groundY + 40, 40, 40);
+  });
 
-  if (chest)
-    ctx.drawImage(imgs.chest, chest.x, ground+30, 50,50);
+  if (chest) {
+    ctx.drawImage(images.chest, chest.x, groundY + 30, 50, 50);
+  }
 
-  ctx.fillStyle="white";
-  ctx.font="20px Arial";
-  ctx.fillText("Очки: "+score, 10,30);
+  ctx.fillStyle = "white";
+  ctx.font = "20px Arial";
+  ctx.fillText("Очки: " + score, 10, 30);
 
-  prizes.forEach((p,i)=>
-    ctx.drawImage(p, 10+i*45, 50, 40,40)
-  );
+  prizes.forEach((p, i) => {
+    ctx.drawImage(p, 10 + i * 45, 50, 40, 40);
+  });
 }
 
 /* === ЦИКЛ === */
-function loop() {
+function gameLoop() {
   update();
   draw();
-  requestAnimationFrame(loop);
+  requestAnimationFrame(gameLoop);
 }
-loop();
+
+gameLoop();
