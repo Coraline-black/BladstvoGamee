@@ -47,8 +47,11 @@ const bgSpeed = 5;
 /* === ИНИЦИАЛИЗАЦИЯ РАЗМЕРОВ === */
 function initSizes() {
   groundY = canvas.height*0.65;
-  player.w = canvas.width*0.18;
+
+  // Ширина бабушки увеличена на 1.3, высота оставлена прежней
+  player.w = canvas.width*0.18 * 1.3;  
   player.h = canvas.height*0.25;
+
   player.x = canvas.width*0.5 - player.w/2;
   player.y = groundY;
   player.jumpPower = -canvas.height*0.035;
